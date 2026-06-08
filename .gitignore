@@ -27,7 +27,7 @@ vcpkg
 
 *.o
 *.obj
-
+*~
 # Debug
 
 *.pdb
