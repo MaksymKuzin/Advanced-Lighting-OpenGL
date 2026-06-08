@@ -1,0 +1,257 @@
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+#include "Shader.h"
+#include "Model.h"
+
+#include <iostream>
+
+// --- Глобальні змінні для камери ---
+// --- Глобальні змінні для Орбітальної камери ---
+float modelRotX = 0.0f; // Обертання моделі вгору/вниз
+float modelRotY = 0.0f; // Обертання моделі вліво/вправо
+float radius = 5.0f;    // Зум (відстань камери від центру)
+int activeModelIndex = 0;
+bool isDragging = false;
+float lastX = 400.0f;
+float lastY = 300.0f;
+float panX = 0.0f; // Зсув моделі по горизонталі
+float panY = 0.0f; // Зсув моделі по вертикалі
+
+glm::vec3 cameraPos;
+
+float deltaTime = 0.0f;
+float lastFrame = 0.0f;
+
+bool backViewMode = false;
+bool spacePressedLastFrame = false;
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+    glViewport(0, 0, width, height);
+}
+
+void mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {
+    float xpos = static_cast<float>(xposIn);
+    float ypos = static_cast<float>(yposIn);
+
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_RELEASE &&
+        glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_RELEASE) {
+        lastX = xpos;
+        lastY = ypos;
+        return;
+        }
+
+    float xoffset = xpos - lastX;
+    float yoffset = ypos - lastY;
+
+    lastX = xpos;
+    lastY = ypos;
+
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+        float rotSensitivity = 0.5f;
+        modelRotY += xoffset * rotSensitivity;
+        modelRotX += yoffset * rotSensitivity;
+
+        if (modelRotX > 89.0f) modelRotX = 89.0f;
+        if (modelRotX < -89.0f) modelRotX = -89.0f;
+
+        backViewMode = false;
+    }
+
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS) {
+        float panSensitivity = 0.01f;
+        panX += xoffset * panSensitivity;
+        panY -= yoffset * panSensitivity;
+    }
+}
+
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+    radius -= static_cast<float>(yoffset) * 0.5f;
+    if (radius < 1.0f) radius = 1.0f;
+    if (radius > 15.0f) radius = 15.0f;
+}
+
+void processInput(GLFWwindow *window) {
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);
+
+    float rotSpeed = 120.0f * deltaTime;
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+        modelRotY -= rotSpeed;
+        backViewMode = false;
+    }
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+        modelRotY += rotSpeed;
+        backViewMode = false;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+        if (!spacePressedLastFrame) {
+            backViewMode = !backViewMode;
+            spacePressedLastFrame = true;
+
+            if (backViewMode) {
+                modelRotY = 180.0f;
+                modelRotX = 0.0f;
+            } else {
+                modelRotY = 0.0f;
+                modelRotX = 0.0f;
+            }
+        }
+
+        static bool mPressedLastFrame = false;
+        if (glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS) {
+            if (!mPressedLastFrame) {
+                activeModelIndex = 1 - activeModelIndex;
+                mPressedLastFrame = true;
+                std::cout << "Кнопка М натиснута! Індекс тепер: " << activeModelIndex << std::endl;
+            }
+        }
+        if (glfwGetKey(window, GLFW_KEY_M) == GLFW_RELEASE) {
+            mPressedLastFrame = false;
+        }
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_RELEASE) {
+        spacePressedLastFrame = false;
+    }
+}
+
+void printModelStats(const std::string& name, const Model& model) {
+    int totalVertices = 0;
+    int totalTriangles = 0;
+
+    for (const auto& mesh : model.meshes) {
+        totalVertices += mesh.vertices.size();
+        totalTriangles += mesh.indices.size() / 3; // Кожні 3 індекси = 1 трикутник
+    }
+
+    std::cout << "========== MODEL STATISTICS: " << name << " ==========\n";
+    std::cout << "Vertices: " << totalVertices << "\n";
+    std::cout << "Polygons: " << totalTriangles << "\n";
+    std::cout << "======================================================\n\n";
+}
+
+int main() {
+    // Ініціалізація GLFW та GLAD
+    glfwInit();
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    GLFWwindow* window = glfwCreateWindow(800, 600, "Dragon_Blinn-Phong_Lighting", NULL, NULL);
+    if (window == NULL) {
+        std::cout << "Failed to create GLFW window" << std::endl;
+        glfwTerminate();
+        return -1;
+    }
+    glfwMakeContextCurrent(window);
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
+    glfwSetCursorPosCallback(window, mouse_callback);
+    glfwSetScrollCallback(window, scroll_callback);
+
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        std::cout << "Failed to initialize GLAD" << std::endl;
+        return -1;
+    }
+
+    glEnable(GL_DEPTH_TEST);
+    stbi_set_flip_vertically_on_load(true);
+
+    // --- 2. Завантаження шейдерів та моделі ---
+    Shader lightingShader(
+    "../resources/shaders/vertex_shader.glsl",
+    "../resources/shaders/fragment_shader.glsl"
+);
+
+    Model ourModel("../resources/models/dragon.glb");
+    Model dogModel("../resources/models/tree.glb");
+    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+    printModelStats("Dragon Model", ourModel);
+    printModelStats("Tree (Alpha Clipped) Model", dogModel);
+
+    // Змінні для підрахунку FPS
+    double lastTimeFPS = glfwGetTime();
+    int nbFrames = 0;
+    // --- 3. Головний цикл ---
+    while (!glfwWindowShouldClose(window)) {
+        double currentTime = glfwGetTime();
+        nbFrames++;
+        if (currentTime - lastTimeFPS >= 1.0) {
+            double msPerFrame = 1000.0 / double(nbFrames);
+
+            std::cout << "Current Model: " << (activeModelIndex == 0 ? "Dragon" : "Tree")
+                      << " | Frame Time: " << msPerFrame << " ms"
+                      << " | FPS: " << nbFrames << std::endl;
+
+            nbFrames = 0;
+            lastTimeFPS += 1.0;
+        }
+        float currentFrame = static_cast<float>(glfwGetTime());
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+
+        processInput(window);
+
+        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // 1. Розрахунок позиції камери на сфері (Орбіта)
+        //float camY = radius * sin(glm::radians(pitch));
+        //float camZ = radius * cos(glm::radians(pitch)) * cos(glm::radians(yaw));
+        //cameraPos = glm::vec3(camX, camY, camZ);
+
+        lightingShader.use();
+
+        lightingShader.setVec3("lightColor", glm::vec3(1.0f, 1.0f, 1.0f));
+        lightingShader.setVec3("lightPos", glm::vec3(0.0f, 3.0f, 5.0f));
+
+        float cY = glm::radians(modelRotY);
+        float cP = glm::radians(modelRotX);
+
+        cameraPos.x = radius * sin(cY) * cos(cP);
+        cameraPos.y = radius * sin(cP);
+        cameraPos.z = radius * cos(cY) * cos(cP);
+
+        lightingShader.setVec3("viewPos", cameraPos);
+
+        glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
+        glm::mat4 view = glm::lookAt(cameraPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+        lightingShader.setMat4("projection", projection);
+        lightingShader.setMat4("view", view);
+
+        if (activeModelIndex == 0) {
+            glm::mat4 modelDragon = glm::mat4(1.0f);
+            modelDragon = glm::translate(modelDragon, glm::vec3(panX, panY - 0.5f, 0.0f));            modelDragon = glm::rotate(modelDragon, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+            //modelDragon = glm::rotate(modelDragon, glm::radians(modelRotX), glm::vec3(1.0f, 0.0f, 0.0f));
+            //modelDragon = glm::rotate(modelDragon, glm::radians(modelRotY), glm::vec3(0.0f, 1.0f, 0.0f));
+            modelDragon = glm::scale(modelDragon, glm::vec3(1.0f, 1.0f, 1.0f));
+
+            lightingShader.setMat4("model", modelDragon);
+            ourModel.Draw(lightingShader);
+
+        } else {
+            glm::mat4 modelTree = glm::mat4(1.0f);
+            modelTree = glm::translate(modelTree, glm::vec3(panX, panY - 1.0f, 0.0f));
+            modelTree = glm::rotate(modelTree, glm::radians(0.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+            //modelTree = glm::rotate(modelTree, glm::radians(modelRotX), glm::vec3(1.0f, 0.0f, 0.0f));
+            //modelTree = glm::rotate(modelTree, glm::radians(modelRotY), glm::vec3(0.0f, 1.0f, 0.0f));
+            modelTree = glm::scale(modelTree, glm::vec3(0.05f, 0.05f, 0.05f));
+
+            lightingShader.setMat4("model", modelTree);
+            dogModel.Draw(lightingShader);
+        }
+
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
+
+    glfwTerminate();
+    return 0;
+}
