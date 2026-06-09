@@ -1,42 +1,60 @@
-# CLion
+# Prerequisites
+*.d
 
-.idea/
-
-# CMake
-
-cmake-build-debug/
-cmake-build-release/
-CMakeCache.txt
-CMakeFiles/
-cmake_install.cmake
-Makefile
-vcpkg
-# Executables
-
-*.exe
-*.out
-
-# Libraries
-
-*.dll
-*.so
-*.dylib
-*.lib
-
-# Object files
-
+# Compiled Object files
+*.slo
+*.lo
 *.o
 *.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# CMake & CLion specific
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+ctest_custom.ini
+ctest_custom.cmake
+
+# Build directories
+cmake-build-*/
+build/
+bin/
+out/
+
+# CLion/IntelliJ
+.idea/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
 *~
-# Debug
-
-*.pdb
-
-# Logs
-
-*.log
-
-# OS
-
-.DS_Store
-Thumbs.db

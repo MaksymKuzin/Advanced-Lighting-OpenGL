@@ -9,8 +9,8 @@
 
 #include <iostream>
 
-// --- Глобальні змінні для камери ---
-// --- Глобальні змінні для Орбітальної камери ---
+// Глобальні змінні
+
 float modelRotX = 0.0f; // Обертання моделі вгору/вниз
 float modelRotY = 0.0f; // Обертання моделі вліво/вправо
 float radius = 5.0f;    // Зум (відстань камери від центру)
@@ -20,7 +20,6 @@ float lastX = 400.0f;
 float lastY = 300.0f;
 float panX = 0.0f; // Зсув моделі по горизонталі
 float panY = 0.0f; // Зсув моделі по вертикалі
-
 glm::vec3 cameraPos;
 
 float deltaTime = 0.0f;
@@ -68,6 +67,7 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {
     }
 }
 
+
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
     radius -= static_cast<float>(yoffset) * 0.5f;
     if (radius < 1.0f) radius = 1.0f;
@@ -113,6 +113,7 @@ void processInput(GLFWwindow *window) {
         if (glfwGetKey(window, GLFW_KEY_M) == GLFW_RELEASE) {
             mPressedLastFrame = false;
         }
+
     }
 
     if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_RELEASE) {
@@ -168,8 +169,13 @@ int main() {
     "../resources/shaders/fragment_shader.glsl"
 );
 
+    std::cout << "Loading models...\n";
+    double startLoadTime = glfwGetTime();
     Model ourModel("../resources/models/dragon.glb");
     Model dogModel("../resources/models/tree.glb");
+    double endLoadTime = glfwGetTime();
+    std::cout << "Download complete! Initialization time: " << (endLoadTime - startLoadTime) * 1000.0 << " ms\n\n";
+
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
     printModelStats("Dragon Model", ourModel);

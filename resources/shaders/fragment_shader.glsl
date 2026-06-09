@@ -28,7 +28,7 @@ void main() {
     float specularStrength = 0.3; // Не робимо хутро занадто металевим
     vec3 viewDir = normalize(viewPos - FragPos);
     vec3 halfwayDir = normalize(lightDir + viewDir);
-    float spec = pow(max(dot(norm, halfwayDir), 0.0), 32.0); // 32 - показник розсіювання
+    float spec = pow(max(dot(norm, halfwayDir), 0.0), 32.0);
     vec3 specular = specularStrength * spec * lightColor;
 
     // Беремо колір пікселя з текстури розмальовки
